@@ -1,24 +1,23 @@
 // script.js
 // ======================
-//  Chart (dummy data for now)
+//  Portfolio Chart (now uses real net_worth history)
 // ======================
+
 const ctx = document.getElementById("portfolioChart").getContext("2d");
 
-const dataSets = {
-  "1w":  [102000, 101000, 103500, 104000, 104096],
-  "1m":  [98000, 99000, 101000, 103000, 104000],
-  "3m":  [94000, 96000, 98000, 100000, 104000],
-  "all": [50000, 65000, 72000, 85000, 104000],
-};
+// store history of net_worth points
+let portfolioHistory = []; // { ts: ms, value: number }
+let currentRange = "1w";
 
+// initialize empty chart
 const chart = new Chart(ctx, {
   type: "line",
   data: {
-    labels: ["Day 1", "Day 2", "Day 3", "Today"],
+    labels: [],
     datasets: [
       {
         label: "Portfolio Value",
-        data: dataSets["1w"],
+        data: [],
         borderColor: "#a78bfa",
         borderWidth: 2,
         fill: false,
@@ -35,15 +34,91 @@ const chart = new Chart(ctx, {
   },
 });
 
-// Tabs to switch dummy chart ranges
+/**
+ * Add a new net_worth point into portfolioHistory
+ * and update the chart for the current range
+ */
+function recordNetWorthSample(netWorth) {
+  const v = Number(netWorth);
+  if (!isFinite(v)) return;
+
+  const now = Date.now();
+  const last = portfolioHistory[portfolioHistory.length - 1];
+
+  // avoid spamming identical consecutive points
+  if (last && Math.abs(last.value - v) < 0.01) {
+    return;
+  }
+
+  portfolioHistory.push({ ts: now, value: v });
+
+  // keep history somewhat bounded
+  if (portfolioHistory.length > 200) {
+    portfolioHistory.shift();
+  }
+
+  updateChartForRange(currentRange);
+}
+
+/**
+ * Compute which points belong in the selected time range
+ * and push them into the chart.
+ */
+function updateChartForRange(range) {
+  currentRange = range;
+  if (!portfolioHistory.length) return;
+
+  const now = Date.now();
+  let windowMs;
+
+  switch (range) {
+    case "1w":
+      windowMs = 7 * 24 * 60 * 60 * 1000;
+      break;
+    case "1m":
+      windowMs = 30 * 24 * 60 * 60 * 1000;
+      break;
+    case "3m":
+      windowMs = 90 * 24 * 60 * 60 * 1000;
+      break;
+    case "all":
+    default:
+      windowMs = null;
+      break;
+  }
+
+  let points;
+  if (!windowMs || range === "all") {
+    points = [...portfolioHistory];
+  } else {
+    points = portfolioHistory.filter((p) => now - p.ts <= windowMs);
+    if (!points.length) points = [...portfolioHistory];
+  }
+
+  const labels = points.map((p) => {
+    const d = new Date(p.ts);
+    // short label: hh:mm or dd/MM for longer term
+    return d.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  });
+
+  const values = points.map((p) => p.value);
+
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = values;
+  chart.update();
+}
+
+// Tabs now change the selected range of *real* history
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     const active = document.querySelector(".tab.active");
     if (active) active.classList.remove("active");
     tab.classList.add("active");
     const range = tab.dataset.range;
-    chart.data.datasets[0].data = dataSets[range];
-    chart.update();
+    updateChartForRange(range);
   });
 });
 
@@ -51,7 +126,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
    Globals / helpers
    ====================== */
 
-const AUTO_POLL_INTERVAL_MS = 60 * 1000; // 1 minute refresh
+const AUTO_POLL_INTERVAL_MS = 15 * 1000; // 1 minute refresh
 const DEBOUNCE_MS = 350;
 let _autoPollTimer = null;
 
@@ -564,6 +639,11 @@ async function loadPortfolioFromServer() {
     const { account, holdings } = data;
     renderHoldingsFromServer(holdings || []);
     updateStatsFromServer(account || {});
+
+    // 🔥 record a net_worth sample for the chart
+    if (account && typeof account.net_worth !== "undefined") {
+      recordNetWorthSample(account.net_worth);
+    }
   } catch (err) {
     console.error("loadPortfolioFromServer error", err);
   }
