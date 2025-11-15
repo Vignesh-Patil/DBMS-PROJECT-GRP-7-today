@@ -141,7 +141,7 @@ app.get('/api/market-news', async (req, res) => {
 
 // Serve login page
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "Login.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // Serve registration page
@@ -197,6 +197,20 @@ app.post("/page1.html", async (req, res) => {
   } catch (e) {
     console.error("Login error:", e);
     return res.status(500).send("Login error");
+  }
+});
+
+// Serve portfolio (page1) only if logged in via session
+app.get('/page1.html', (req, res) => {
+  try {
+    if (req.session && req.session.user_id) {
+      return res.sendFile(path.join(__dirname, 'page1.html'));
+    }
+    // Not logged in -> send Login page
+    return res.redirect('/Login.html');
+  } catch (e) {
+    console.error('Error serving page1:', e);
+    return res.status(500).send('Server error');
   }
 });
 

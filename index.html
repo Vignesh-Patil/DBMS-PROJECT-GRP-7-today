@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Landing Page</title>
+  <!-- <link rel="stylesheet" href="design.css"> -->
+   <style>
+    :root {
+  --bg-dark: #0f172a;
+  --bg-card: #1e293b;
+  --bg-hero: linear-gradient(135deg, #1d2b64, #1e3c72);
+  --text-light: #e2e8f0;
+  --text-muted: #94a3b8;
+  --accent: #6d28d9;
+  --accent-light: #a78bfa;
+  --radius: 12px;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ============================
+   BASE STYLE
+============================ */
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-light);
+}
+
+/* ============================
+   NAVBAR
+============================ */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 40px;
+  background: var(--bg-card);
+  color: var(--text-light);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: var(--shadow);
+}
+
+.logo {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent-light);
+}
+
+nav ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  gap: 30px;
+}
+
+nav a {
+  text-decoration: none;
+  color: var(--text-light);
+  font-weight: 600;
+  transition: 0.25s ease;
+  letter-spacing: 0.5px;
+}
+
+nav a:hover {
+  color: var(--accent-light);
+}
+
+/* ============================
+   HERO SECTION
+============================ */
+.hero {
+  padding: 140px 40px;
+  text-align: center;
+  background: var(--bg-hero);
+  color: white;
+  box-shadow: var(--shadow);
+}
+
+.hero h1 {
+  font-size: 3.2rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.hero p {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+/* ============================
+   INFO SECTION
+============================ */
+.section {
+  max-width: 900px;
+  margin: 60px auto;
+  padding: 20px;
+  line-height: 1.7;
+  color: var(--text-light);
+}
+
+.section h2 {
+  text-align: center;
+  color: var(--accent-light);
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+}
+
+/* ============================
+   CONTACT SECTION
+============================ */
+#contact {
+  background: var(--bg-card);
+  padding: 60px 40px;
+  border-radius: var(--radius);
+  max-width: 900px;
+  margin: auto;
+  box-shadow: var(--shadow);
+}
+
+#contact h2 {
+  text-align: center;
+  color: var(--accent-light);
+  margin-bottom: 20px;
+}
+
+#contact p {
+  font-size: 1rem;
+  margin: 5px 0;
+  color: var(--text-light);
+}
+
+/* ============================
+   FOOTER
+============================ */
+footer {
+  margin-top: 60px;
+  text-align: center;
+  padding: 20px;
+  background: var(--bg-card);
+  color: var(--text-light);
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: var(--shadow);
+  font-size: 0.9rem;
+}
+
+/* ============================
+   RESPONSIVE DESIGN
+============================ */
+@media (max-width: 768px) {
+  nav ul {
+    gap: 15px;
+  }
+
+  .hero h1 {
+    font-size: 2.4rem;
+  }
+
+  .hero {
+    padding: 100px 20px;
+  }
+
+  .section, #contact {
+    padding: 30px 20px;
+  }
+}
+  </style> 
+</head>
+<body>
+
+  <!-- NAVIGATION BAR -->
+  <nav>
+    <div class="logo">StockInfo</div>
+    <ul>
+      <li><a href="#" id="portfolioBtn">Portfolio</a></li>
+      <li><a href="market-news.html">Market</a></li>
+      <li><a href="company.html">Company</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <section class="hero">
+    <h1>Welcome to StockMan</h1>
+    <p>Your gateway to market insights, stock analysis, and portfolio tracking.</p>
+  </section>
+
+  <!-- INFO SECTION -->
+  <section class="section">
+    <h2>About Stocks</h2>
+    <p>
+      Stocks represent ownership in a company. When you buy a stock, you're buying a share
+      of that company's future earnings. The stock market allows investors to buy and sell
+      these shares, helping companies raise capital and investors grow wealth.
+    </p>
+    <p>
+      Stock prices fluctuate based on supply and demand, company performance, global events,
+      and market sentiment. Staying informed helps investors make better decisions.
+    </p>
+  </section>
+
+  <!-- CONTACT SECTION -->
+  <section id="contact">
+    <h2>Contact Us</h2>
+    <p>Email: b23cs004@nitm.ac.in (Gabriel L Jongte)</p>
+    <p>Email: b23cs005@nitm.ac.in (Vignesh Sunil Patil)</p>
+    <p>Email: b23cs041@nitm.ac.in (Raunak Prabhakar)</p>
+    <p>Address: NIT Meghalaya, Sohra, Cherrapunjee, India</p>
+  </section>
+
+  <footer>
+    © 2025 StockInfo. All Rights Reserved.
+  </footer>
+
+  <!-- PORTFOLIO REDIRECT LOGIC -->
+  <script>
+    // Navigate to the portfolio page; server will redirect to login if the session is missing
+    document.getElementById("portfolioBtn").addEventListener("click", function (e) {
+      e.preventDefault();
+      window.location.href = "/page1.html";
+    });
+  </script>
+
+</body>
+</html>
