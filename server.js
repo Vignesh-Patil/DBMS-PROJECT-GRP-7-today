@@ -1,3 +1,6 @@
+require('dotenv').config();
+console.log("Loaded API Key:", process.env.COMPANY_API_KEY);
+
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -18,7 +21,12 @@ const FINNHUB_API_KEY =
 app.use(cors());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(express.static(__dirname));
+
+// Add request logger middleware
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.path}`);
+  next();
+});
 
 app.use(
   session({
@@ -27,6 +35,8 @@ app.use(
     saveUninitialized: false,
   })
 );
+
+
 
 // --- SQLite setup ---
 const dbPath = path.join(__dirname, "portfolio.db");
@@ -99,6 +109,7 @@ if (fs.existsSync(schemaPath)) {
   }
 })();
 
+
 // ---------- helpers ----------
 async function fetchFinnhub(url) {
   try {
@@ -111,6 +122,22 @@ async function fetchFinnhub(url) {
 }
 
 // ---------- routes ----------
+
+//market page
+const NEWS_API_KEY = process.env.NEWS_API_KEY;
+
+// MARKET NEWS ROUTE
+app.get('/api/market-news', async (req, res) => {
+  try {
+    const url = `https://newsapi.org/v2/top-headlines?category=business&language=en&apiKey=${NEWS_API_KEY}`;
+    
+    const response = await axios.get(url);
+    res.json(response.data.articles);
+  } catch (error) {
+    console.error("Error fetching news:", error.message);
+    res.status(500).json({ error: "Failed to load news" });
+  }
+});
 
 // Serve login page
 app.get("/", (req, res) => {
@@ -661,7 +688,173 @@ app.get("/api/refresh-prices", async (req, res) => {
     return res.status(500).json({ error: "Failed to refresh" });
   }
 });
+// 6) COMPANY NEWS
+app.get("/company-news/:symbol", async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  console.log(`🔵 /company-news/:symbol route hit for symbol: ${symbol}`);
+  const NEWS_API_KEY = process.env.NEWS_API_KEY;
 
+  // Query NewsAPI (everything) for company symbol or name. If NEWS_API_KEY missing or request fails,
+  // return demo data.
+  try {
+    if (!NEWS_API_KEY) {
+      console.warn("NEWS_API_KEY not set, returning demo news");
+      throw new Error('No NEWS_API_KEY');
+    }
+
+  const q = encodeURIComponent(symbol);
+  // Request English articles only
+  const url = `https://newsapi.org/v2/everything?q=${q}&language=en&pageSize=10&sortBy=publishedAt&apiKey=${NEWS_API_KEY}`;
+    console.log(`📡 Fetching company news from NewsAPI: ${url}`);
+
+    const response = await axios.get(url, { timeout: 10000 });
+    const data = response.data;
+
+    if (!data || !Array.isArray(data.articles) || data.articles.length === 0) {
+      console.log("NewsAPI returned no articles, falling back to demo news");
+      throw new Error('No articles');
+    }
+
+    // Normalize articles to the frontend shape
+    const articles = data.articles.map(a => ({
+      title: a.title,
+      text: a.description || a.content || '',
+      url: a.url,
+      site: a.source?.name || a.source || 'NewsAPI',
+      publishedAt: a.publishedAt
+    }));
+
+    return res.json({ news: articles });
+  } catch (err) {
+    console.error("Error fetching company news:", err.message, {
+      status: err.response?.status,
+      body: err.response?.data,
+    });
+    // Demo fallback
+    const demoNews = [
+      {
+        title: `${symbol} - Market Update`,
+        text: "Unable to fetch live news; showing demo items.",
+        url: "#",
+        site: "Demo",
+        publishedAt: new Date().toISOString()
+      },
+      {
+        title: `${symbol} Market Analysis`,
+        text: `Demo analysis for ${symbol}. Replace with NewsAPI results by setting NEWS_API_KEY in .env.`,
+        url: "#",
+        site: "Demo",
+        publishedAt: new Date().toISOString()
+      }
+    ];
+    return res.json({ news: demoNews });
+  }
+});
+
+app.get("/company-chart/:symbol", async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  console.log(`🔵 /company-chart/:symbol route hit for symbol: ${symbol}`);
+  const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
+
+  try {
+    if (!FINNHUB_API_KEY) {
+      console.warn('FINNHUB_API_KEY not set, returning demo chart and quote');
+      throw new Error('No FINNHUB_API_KEY');
+    }
+
+  // 1) Fetch quote (latest) from Finnhub using fetchFinnhub helper
+  const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`;
+  console.log(`📡 Fetching quote from Finnhub: ${quoteUrl}`);
+  const quote = await fetchFinnhub(quoteUrl) || {};
+
+  // 2) Fetch historical candles (daily) from Finnhub using fetchFinnhub helper
+  const now = Math.floor(Date.now() / 1000);
+  const from = now - 30 * 24 * 60 * 60; // last 30 days
+  const candleUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=D&from=${from}&to=${now}&token=${FINNHUB_API_KEY}`;
+  console.log(`📡 Fetching candles from Finnhub: ${candleUrl}`);
+  const candleData = await fetchFinnhub(candleUrl) || {};
+
+    let chart = [];
+    if (candleData && candleData.s === 'ok' && Array.isArray(candleData.t)) {
+      for (let i = 0; i < candleData.t.length; i++) {
+        const ts = candleData.t[i];
+        chart.push({
+          date: new Date(ts * 1000).toISOString().split('T')[0],
+          open: candleData.o[i],
+          high: candleData.h[i],
+          low: candleData.l[i],
+          close: candleData.c[i],
+          volume: candleData.v[i]
+        });
+      }
+    } else {
+      console.log('Finnhub candles returned no data or error, generating small demo chart', candleData);
+      // fallback demo chart
+      let price = (quote.c && Number(quote.c)) || 100 + Math.random() * 50;
+      for (let i = 10; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        price = +(price * (0.98 + Math.random() * 0.04)).toFixed(2);
+        chart.push({ date: date.toISOString().split('T')[0], close: price, open: price * 0.99, high: price * 1.01, low: price * 0.98, volume: 0 });
+      }
+    }
+
+    // Normalize quote fields expected by frontend
+    const normalizedQuote = {
+      price: quote.c ?? null,
+      change: quote.d ?? null,
+      changePercent: quote.dp ?? null,
+      high: quote.h ?? null,
+      low: quote.l ?? null,
+      open: quote.o ?? null,
+      previousClose: quote.pc ?? null
+    };
+
+    // If quote fields are missing, try the internal /api/quote endpoint as a fallback
+    if (normalizedQuote.price == null) {
+      try {
+        console.log('Normalized quote missing — trying internal /api/quote fallback');
+        const internal = await axios.get(`http://localhost:${process.env.PORT || 3000}/api/quote?symbol=${encodeURIComponent(symbol)}`, { timeout: 5000 });
+        const q = internal.data || {};
+        if (q && q.price != null) {
+          normalizedQuote.price = q.price;
+          normalizedQuote.change = q.change ?? normalizedQuote.change;
+          normalizedQuote.changePercent = q.changePercent ?? normalizedQuote.changePercent;
+          normalizedQuote.high = q.high ?? normalizedQuote.high;
+          normalizedQuote.low = q.low ?? normalizedQuote.low;
+          normalizedQuote.open = q.open ?? normalizedQuote.open;
+          normalizedQuote.previousClose = q.previousClose ?? normalizedQuote.previousClose;
+          console.log('Internal /api/quote fallback succeeded');
+        }
+      } catch (e) {
+        console.warn('Internal /api/quote fallback failed:', e.message);
+      }
+    }
+
+    return res.json({ chart, quote: normalizedQuote });
+  } catch (err) {
+    console.error("Error fetching company chart or quote:", err.message, {
+      status: err.response?.status,
+      body: err.response?.data,
+    });
+
+    // Demo fallback: simple chart + null quote
+    const demoChart = [];
+    let price = 100 + Math.random() * 50;
+    for (let i = 10; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      price = +(price * (0.98 + Math.random() * 0.04)).toFixed(2);
+      demoChart.push({ date: date.toISOString().split('T')[0], close: price, open: price * 0.99, high: price * 1.01, low: price * 0.98, volume: 0 });
+    }
+
+    return res.json({ chart: demoChart, quote: { price: null, change: null, changePercent: null, high: null, low: null, open: null, previousClose: null } });
+  }
+});
+
+
+// Serve static files AFTER all API routes
+app.use(express.static(__dirname));
 
 // Start server
 const PORT = process.env.PORT || 3000;
